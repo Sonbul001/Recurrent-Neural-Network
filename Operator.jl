@@ -16,7 +16,7 @@ end
 
 Base.Broadcast.broadcasted(-, x::GraphNode, y::GraphNode) = BroadcastedOperator(-, x, y)
 forward(::BroadcastedOperator{typeof(-)}, x, y) = return x .- y
-backward(::BroadcastedOperator{typeof(-)}, x, y, g) = tuple(g,-g) #gradient x, gradient y
+backward(::BroadcastedOperator{typeof(-)}, x, y, g) = tuple(g,-g)
 
 Base.Broadcast.broadcasted(-, x::GraphNode) = BroadcastedOperator(-, x)
 forward(::BroadcastedOperator{typeof(-)}, x::Matrix{Float64}) = return .-x
@@ -100,20 +100,35 @@ Base.Broadcast.broadcasted(log, x::GraphNode) = BroadcastedOperator(log, x)
 forward(::BroadcastedOperator{typeof(log)}, x::Matrix{Float64}) = return log.(x)
 backward(::BroadcastedOperator{typeof(log)}, x::Matrix{Float64}, g::AbstractMatrix{Float64}) = tuple(((1 ./ x)' .* g)')
 
+# cross_entropy_loss(y_hat::GraphNode, y::GraphNode) = BroadcastedOperator(cross_entropy_loss, y_hat, y)
+# forward(::BroadcastedOperator{typeof(cross_entropy_loss)}, y_hat, y) =
+#     let
+#         y_hat = y_hat .- maximum(y_hat)
+#         y_hat = exp.(y_hat) ./ sum(exp.(y_hat))
+#         loss = sum(log.(y_hat) .* y) * -1.0
+#         return loss
+#     end
+# backward(::BroadcastedOperator{typeof(cross_entropy_loss)}, y_hat, y, g) =
+#     let
+#         y_hat = y_hat .- maximum(y_hat)
+#         y_hat = exp.(y_hat) ./ sum(exp.(y_hat))
+#         return tuple(g .* (y_hat - y))
+#     end
+
 cross_entropy_loss(y_hat::GraphNode, y::GraphNode) = BroadcastedOperator(cross_entropy_loss, y_hat, y)
-forward(::BroadcastedOperator{typeof(cross_entropy_loss)}, y_hat, y) =
-    let
-        y_hat = y_hat .- maximum(y_hat)
-        y_hat = exp.(y_hat) ./ sum(exp.(y_hat))
-        loss = sum(log.(y_hat) .* y) * -1.0
-        return loss
-    end
-backward(::BroadcastedOperator{typeof(cross_entropy_loss)}, y_hat, y, g) =
-    let
-        # y_hat = y_hat .- maximum(y_hat)
-        # y_hat = exp.(y_hat) ./ sum(exp.(y_hat))
-        return tuple(g .* (y_hat - y))
-    end
+forward(op::BroadcastedOperator{typeof(cross_entropy_loss)}, y_hat, y) = let
+    y_hat = y_hat .- maximum(y_hat, dims=1)
+    y_hat = exp.(y_hat) ./ sum(exp.(y_hat), dims=1)
+    loss = -sum(y .* log.(y_hat)) / size(y, 2)
+    return loss
+end
+backward(op::BroadcastedOperator{typeof(cross_entropy_loss)}, y_hat, y, g) = let
+    y_hat = y_hat .- maximum(y_hat, dims=1)
+    y_hat = exp.(y_hat) ./ sum(exp.(y_hat), dims=1)
+    grad = g .* (y_hat .- y) / size(y, 2)
+    return tuple(grad)
+end
+
 
 mse(ŷ::GraphNode, y::GraphNode) = BroadcastedOperator(mse, ŷ, y)
 forward(::BroadcastedOperator{typeof(mse)}, ŷ, y) = let 
@@ -122,10 +137,3 @@ end
 backward(::BroadcastedOperator{typeof(mse)}, ŷ, y, g) = let 
     return tuple(g .* (ŷ - y))
 end
-# σ(x::GraphNode) = BroadcastedOperator(σ, x)
-# forward(::BroadcastedOperator{typeof(σ)}, x) = return 1 ./ (1 .+ exp.(-x))
-# backward(node::BroadcastedOperator{typeof(σ)}, x, g) = let
-#     y = node.output
-#     dx = g .* y .* (1 .- y)
-#     tuple(dx)
-# end
