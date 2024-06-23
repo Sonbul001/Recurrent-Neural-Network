@@ -123,7 +123,8 @@ test_set_size = size(testX, 2)
 total = 0
 correct = 0
 
-for j in 1:test_set_size
+
+@time @allocated for j in 1:test_set_size
     x = Variable(testX[:, j], name="x")
     y = Variable(testY[:, j], name="y")
     graph, result = net(x, W_i, W_h, b_h, W_o, b_o, y)
