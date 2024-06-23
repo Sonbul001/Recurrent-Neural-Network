@@ -83,36 +83,37 @@ training_set_size = 60000
 #inicjacja tablicy na funkjcę strat
 losses = Float64[] 
 
+@time @allocated begin
+    for i=1:epochs
+        total = 0
+        correct = 0
+        for j=1:training_set_size
+            x = Variable(trainX[:,j], name="x")
+            y = Variable(trainY[:,j], name="y")
+            graph, result = net(x, W_i, W_h, b_h, W_o, b_o, y)
+            currentloss = forward!(graph)
 
-for i=1:epochs
-    total = 0
-    correct = 0
-    for j=1:training_set_size
-        x = Variable(trainX[:,j], name="x")
-        y = Variable(trainY[:,j], name="y")
-        graph, result = net(x, W_i, W_h, b_h, W_o, b_o, y)
-        currentloss = forward!(graph)
+            total += 1
+            if (argmax(result.output[:]) == argmax(y.output))
+                correct += 1
+            end
 
-        total += 1
-        if (argmax(result.output[:]) == argmax(y.output))
-            correct += 1
+            backward!(graph)
+            lr = 0.0
+            i < 5 ? lr = 0.001 : lr = 0.01
+            W_i.output -= lr * W_i.gradient
+            W_h.output -= lr * W_h.gradient
+            W_o.output -= lr * W_o.gradient
+            b_h.output -= lr * b_h.gradient
+
+            push!(losses, first(currentloss))
         end
-
-        backward!(graph)
-        lr = 0.0
-        i < 5 ? lr = 0.001 : lr = 0.01
-        W_i.output -= lr * W_i.gradient
-        W_h.output -= lr * W_h.gradient
-        W_o.output -= lr * W_o.gradient
-        b_h.output -= lr * b_h.gradient
-
-        push!(losses, first(currentloss))
+        current_loss = mean(losses[training_set_size*(i-1)+1:training_set_size*i])
+        current_accuracy = total == 0 ? 0.0 : correct / total
+        println("Epoch: ", i)
+        println("Loss: ", current_loss)
+        println("Train accuracy: ", round(current_accuracy * 100, digits=1), "%")
     end
-    current_loss = mean(losses[training_set_size*(i-1)+1:training_set_size*i])
-    current_accuracy = total == 0 ? 0.0 : correct / total
-    println("Epoch: ", i)
-    println("Loss: ", current_loss)
-    println("Train accuracy: ", round(current_accuracy * 100, digits=1), "%")
 end
 
 ####################################################################################################
