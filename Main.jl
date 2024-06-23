@@ -83,8 +83,8 @@ training_set_size = 60000
 #inicjacja tablicy na funkjcę strat
 losses = Float64[] 
 
-@time @allocated begin
-    for i=1:epochs
+@time @allocated for i=1:epochs
+    @time @allocated begin
         total = 0
         correct = 0
         for j=1:training_set_size
